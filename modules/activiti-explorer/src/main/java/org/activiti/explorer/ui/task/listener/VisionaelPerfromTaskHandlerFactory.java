@@ -17,7 +17,7 @@ public class VisionaelPerfromTaskHandlerFactory {
 	private Map<String, TaskPerformHandlerDetail> taskPerformHandlerDetails = new HashMap<String,TaskPerformHandlerDetail>();
 	
 	private VisionaelPerfromTaskHandlerFactory() throws ClassNotFoundException, IOException, ParseException{
-		 FileReader inputFile = new FileReader("/etc/visionael/json.txt");
+		 FileReader inputFile = new FileReader("/etc/visionael/activiti_handler.json");
 		 JSONParser parser = new JSONParser();
 		 JSONObject json = (JSONObject) parser.parse(inputFile);
 		System.out.println("create jsons"+json);
