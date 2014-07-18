@@ -206,7 +206,10 @@
       <version>0.10.0</version>
       <scope>compile</scope>
     </dependency>
-
+      <dependency>
+        <groupId>com.googlecode.json-simple</groupId>
+        <artifactId>json-simple</artifactId>
+      </dependency>
   </dependencies>
 
   <profiles>

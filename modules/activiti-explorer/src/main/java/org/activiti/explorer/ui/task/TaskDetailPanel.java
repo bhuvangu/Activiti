@@ -12,6 +12,7 @@
  */
 package org.activiti.explorer.ui.task;
 
+import java.io.IOException;
 import java.util.Map;
 
 import org.activiti.engine.FormService;
@@ -34,9 +35,14 @@ import org.activiti.explorer.ui.form.FormPropertiesForm;
 import org.activiti.explorer.ui.form.FormPropertiesForm.FormPropertiesEvent;
 import org.activiti.explorer.ui.mainlayout.ExplorerLayout;
 import org.activiti.explorer.ui.task.listener.ClaimTaskClickListener;
+import org.activiti.explorer.ui.task.listener.PerformTaskClickListener;
+import org.activiti.explorer.ui.task.listener.VisionaelPerfromTaskHandlerFactory;
+import org.activiti.explorer.ui.task.listener.VisionaelTaskPerformHandler;
+import org.json.simple.parser.ParseException;
 
 import com.vaadin.event.LayoutEvents.LayoutClickEvent;
 import com.vaadin.event.LayoutEvents.LayoutClickListener;
+import com.vaadin.terminal.ExternalResource;
 import com.vaadin.ui.Alignment;
 import com.vaadin.ui.Button;
 import com.vaadin.ui.Button.ClickEvent;
@@ -47,6 +53,7 @@ import com.vaadin.ui.Embedded;
 import com.vaadin.ui.GridLayout;
 import com.vaadin.ui.HorizontalLayout;
 import com.vaadin.ui.Label;
+import com.vaadin.ui.Link;
 import com.vaadin.ui.TextArea;
 import com.vaadin.ui.VerticalLayout;
 import com.vaadin.ui.themes.Reindeer;
@@ -80,6 +87,7 @@ public class TaskDetailPanel extends DetailPanel {
   protected TaskRelatedContentComponent relatedContent;
   protected Button completeButton;
   protected Button claimButton;
+  protected Button performButton;
   
   public TaskDetailPanel(Task task, TaskPage taskPage) {
     this.task = task;
@@ -164,9 +172,28 @@ public class TaskDetailPanel extends DetailPanel {
     centralLayout.addComponent(layout);
     
     initClaimButton(layout);
+    // hack for visionael
+    initPerformNrmButton(layout);
     initDescription(layout);
   }
 
+	protected void initPerformNrmButton(HorizontalLayout layout) {
+		Boolean showPerformButton = false;
+		System.out.println("isCurrentUserAssignee() "+isCurrentUserAssignee());
+		System.out.println("isCurrentUserOwner "+ isCurrentUserOwner());
+		System.out.println("canUserClaimTask "+ canUserClaimTask());
+		if((isCurrentUserAssignee() || isCurrentUserOwner()) && !canUserClaimTask()){
+			showPerformButton = true;
+		}
+		if (showPerformButton) { // if user can claim a 
+			performButton = new Button("Perform NRM activity");
+			performButton.addListener(new PerformTaskClickListener(
+					task.getId(), taskService));
+			layout.addComponent(performButton);
+			layout.setComponentAlignment(performButton, Alignment.MIDDLE_LEFT);
+		}
+	}
+  
   protected void initClaimButton(HorizontalLayout layout) {
     if(!isCurrentUserAssignee() && canUserClaimTask()) {
       claimButton = new Button(i18nManager.getMessage(Messages.TASK_CLAIM));
@@ -342,18 +369,32 @@ public class TaskDetailPanel extends DetailPanel {
       completeButton.addListener(new ClickListener() {
         
         private static final long serialVersionUID = 1L;
-
+        
         public void buttonClick(ClickEvent event) {
           // If no owner, make assignee owner (will go into archived then)
           if (task.getOwner() == null) {
             task.setOwner(task.getAssignee());
             taskService.setOwner(task.getId(), task.getAssignee());
           }
-          
-          taskService.complete(task.getId());     
-          notificationManager.showInformationNotification(Messages.TASK_COMPLETED, task.getName());
-          taskPage.refreshSelectNext();
+          if(completeVisionaelTask(task.getTaskDefinitionKey(), task.getId())) {
+        	  taskService.complete(task.getId());     
+        	  notificationManager.showInformationNotification(Messages.TASK_COMPLETED, task.getName());
+        	  taskPage.refreshSelectNext();
+          }else {
+              notificationManager.showInformationNotification(Messages.JOB_ERROR, task.getName());
+          }
         }
+
+		private boolean completeVisionaelTask(String taskDefinationKey, String taskId) {
+			try {
+				VisionaelTaskPerformHandler visHandler = VisionaelPerfromTaskHandlerFactory.getInstance().getHandler(taskDefinationKey);
+				visHandler.complete(taskId);
+			}catch(Exception e){
+				return false;
+			}
+			return true;
+			
+		}
       });
       
       completeButton.setEnabled(isCurrentUserAssignee() || isCurrentUserOwner());
